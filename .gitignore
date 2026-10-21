@@ -6,3 +6,11 @@ local.properties
 .cxx/
 .externalNativeBuild/
 *.gguf
+
+# Training: privat, nie ins Repo
+daten/
+lauf/
+.venv/
+.venv-gguf/
+werkzeug/llama/
+__pycache__/
