@@ -1,0 +1,56 @@
+# Baut die APK auf GitHub, auf Fabians Wunsch bei jedem Push.
+# Ergebnis: ein Release "apk-<Zweig>" mit der APK zum Herunterladen am Handy.
+name: APK bauen
+
+on:
+  push:
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: NDK und CMake installieren
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null
+
+      - name: Prüfen und bauen
+        run: ./gradlew testDebugUnitTest assembleRelease
+
+      - name: Als Release ablegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zweig="${GITHUB_REF_NAME//\//-}"
+          tag="apk-$zweig"
+          version=$(grep "^def VERSION" app/build.gradle | cut -d"'" -f2)
+          name="korrektur-$version-$zweig-${GITHUB_SHA::7}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$name"
+          gh release delete "$tag" --cleanup-tag --yes || true
+          gh release create "$tag" "$name" --target "$GITHUB_SHA" --prerelease \
+            --title "Korrektur $version ($GITHUB_REF_NAME, ${GITHUB_SHA::7})" \
+            --notes "Gebaut aus ${GITHUB_SHA::7}, Lauf ${{ github.run_number }}."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: korrektur-*.apk
