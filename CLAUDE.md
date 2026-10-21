@@ -107,6 +107,15 @@ festen Anfangs. Seit 0.04 liegt der eingelesene Anfang in
 `cacheDir/anfang/` (`llama_state_seq_save_file`, ca. 33 MB je Modell), und
 das Modell bleibt 2 Stunden geladen statt 15 Minuten.
 
+**Akku** (21.10.2026): Nach dem Testtag stand die App bei 44 % des Akkus,
+17 Min. Hintergrund. Das war Rechenzeit, kein Leerlauf: bei `poll = 0`
+legen sich die ggml-Threads sofort schlafen (`ggml_graph_compute_check_for_work`),
+ein geladenes, untätiges Modell kostet nichts. Gekostet haben die 8
+kreisenden Threads bis 0.02 (14–30 s Vollast je Satz), viele Ladevorgänge zu
+25 s und die Messläufe. Seit 0.05 zeigt der Startbildschirm, wie oft seit
+dem Start geladen und korrigiert wurde und wie viel Rechenzeit das war
+(`Korrektor.verbrauch()`).
+
 ## Offen
 
 * Die Action „Satz korrigieren“ im Fork (Phase 2) — sie bindet diesen

@@ -41,6 +41,20 @@ object Korrektor {
     @Volatile var zustand: String = "Kein Modell geladen"
         private set
 
+    // Für den Akku: was seit dem Start des Prozesses gerechnet wurde.
+    private var ladenAnzahl = 0
+    private var ladenMs = 0L
+    private var auftraege = 0
+    private var auftraegeMs = 0L
+
+    /** Eine Zeile für den Startbildschirm: wofür die Rechenzeit draufging. */
+    fun verbrauch(): String {
+        val laufzeit = (android.os.SystemClock.elapsedRealtime() - android.os.Process.getStartElapsedRealtime()) / 60_000
+        val cpu = android.os.Process.getElapsedCpuTime() / 1000
+        return "Seit $laufzeit Min.: $ladenAnzahl× geladen (${ladenMs / 1000} s), $auftraege Aufträge " +
+            "(${auftraegeMs / 1000} s), Rechenzeit gesamt $cpu s über alle Kerne"
+    }
+
     fun init(context: Context) {
         if (!::app.isInitialized) app = context.applicationContext
     }
@@ -132,6 +146,7 @@ object Korrektor {
         val eingang = System.currentTimeMillis()
         arbeiter.execute {
             val lageVorher = if (vonTastatur) Lage.jetzt() else ""
+            val start = android.os.SystemClock.elapsedRealtime()
             val ergebnis = try {
                 bearbeite(auftrag, text)
             } catch (e: Exception) {
@@ -140,6 +155,8 @@ object Korrektor {
                 laufend.set(0)
                 abgebrochen.remove(auftrag)
             }
+            auftraege++
+            auftraegeMs += android.os.SystemClock.elapsedRealtime() - start
             if (vonTastatur) protokolliere(eingang, text, ergebnis, lageVorher)
             planeEntladen()
             fertig(ergebnis)
@@ -193,7 +210,10 @@ object Korrektor {
         entlade("")
         zustand = "Lade $name …"
         val wahl = threadWahl
+        val start = android.os.SystemClock.elapsedRealtime()
         val neu = Kern.laden(datei, wahl.anzahl, File(app.cacheDir, "anfang").apply { mkdirs() })
+        ladenAnzahl++
+        ladenMs += android.os.SystemClock.elapsedRealtime() - start
         synchronized(sperre) {
             kern = neu
             kernDatei = datei

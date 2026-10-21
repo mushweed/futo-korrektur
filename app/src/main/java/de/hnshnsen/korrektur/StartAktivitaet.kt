@@ -39,7 +39,7 @@ class StartAktivitaet : Activity() {
 
     private val auffrischen = object : Runnable {
         override fun run() {
-            zustand.text = Korrektor.zustand
+            zustand.text = Korrektor.zustand + "\n" + Korrektor.verbrauch()
             haupt.postDelayed(this, 1000)
         }
     }
