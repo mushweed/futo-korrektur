@@ -1,0 +1,68 @@
+# Baut ein GGUF für die App, nur auf Knopfdruck (Actions -> "Modell bauen").
+# Holt das Originalmodell von Hugging Face, wandelt es mit dem llama.cpp-Stand
+# der App um und legt es als Release "modell-<name>-<format>" ab; am Pixel
+# herunterladen und in der App "Hinzufügen …".
+#
+# Gedacht für Q4_0 (und Q8_0): nur diese Formate rechnet KleidiAI schneller.
+name: Modell bauen
+
+on:
+  workflow_dispatch:
+    inputs:
+      modell:
+        description: Modell auf Hugging Face
+        default: utter-project/EuroLLM-1.7B-Instruct
+      format:
+        description: Quantisierung (Q4_0, Q8_0, Q4_K_M ...)
+        default: Q4_0
+
+permissions:
+  contents: write
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HF_HUB_DISABLE_TELEMETRY: 1
+      MODELL: ${{ inputs.modell }}
+      FORMAT: ${{ inputs.format }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Werkzeuge
+        run: |
+          pip install -q -r llama.cpp/requirements/requirements-convert_hf_to_gguf.txt "huggingface_hub<1"
+          cmake -S llama.cpp -B quant -DLLAMA_BUILD_TOOLS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_SERVER=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DGGML_NATIVE=OFF > /dev/null
+          cmake --build quant --target llama-quantize -j 4 > /dev/null
+
+      - name: Herunterladen
+        run: |
+          python -c "from huggingface_hub import snapshot_download; snapshot_download('$MODELL', local_dir='hf', allow_patterns=['*.json', '*.safetensors', 'tokenizer.model', '*.jinja', '*.txt'])"
+
+      - name: Umwandeln
+        run: |
+          name=$(basename "$MODELL")
+          python llama.cpp/convert_hf_to_gguf.py hf --outtype f16 --outfile f16.gguf
+          rm -rf hf
+          quant/bin/llama-quantize f16.gguf "$name.$FORMAT.gguf" "$FORMAT"
+          rm f16.gguf
+          ls -la *.gguf
+
+      - name: Als Release ablegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          name=$(basename "$MODELL")
+          tag=$(echo "modell-$name-$FORMAT" | tr '[:upper:]' '[:lower:]')
+          gh release delete "$tag" --cleanup-tag --yes || true
+          gh release create "$tag" "$name.$FORMAT.gguf" --target "$GITHUB_SHA" --prerelease \
+            --title "$name $FORMAT" \
+            --notes "Aus $MODELL umgewandelt mit llama.cpp $(git -C llama.cpp describe --tags --always)."

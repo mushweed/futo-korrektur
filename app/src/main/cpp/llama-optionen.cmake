@@ -16,4 +16,9 @@ if(ANDROID)
     # Int8-Matrixbefehle sind auf allen acht Kernen da.
     set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
     set(GGML_CPU_ARM_ARCH "armv8.6-a+dotprod+i8mm" CACHE STRING "" FORCE)
+    # KleidiAI (ARM): schnellere Matrixkerne, aber nur für Q4_0- und Q8_0-Modelle.
+    # Q4_K_M rechnet ggml schon über seinen eigenen i8mm-Weg (q4_K_8x8) - dort
+    # ändert KleidiAI nichts. Die Quellen lädt CMake beim Bauen von GitHub
+    # (Releases von ARM-software/kleidiai), auf dem Gerät wird nichts nachgeladen.
+    set(GGML_CPU_KLEIDIAI ON CACHE BOOL "" FORCE)
 endif()
