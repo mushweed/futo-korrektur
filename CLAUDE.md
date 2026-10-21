@@ -87,6 +87,19 @@ wartet jeder Schritt auf den langsamsten. Seit 0.02 lassen sich Anzahl,
 alle Varianten an einem Satz. Grundeinstellung bis zur Messung: 4 Threads,
 nur schnelle Kerne, schlafend.
 
+**Gemessen mit 0.02 am 21.10.2026** (ein Satz, 18 Token ein, ca. 15 aus):
+
+| Einstellung | Einlesen | Antwort | zusammen |
+|---|---|---|---|
+| 2 Threads, schnelle Kerne, schlafend | 24,6 T/s | 9,2 T/s | 2,3 s |
+| 3 Threads, schnelle Kerne, schlafend | 36,3 T/s | 12,5 T/s | 1,6 s |
+| **4 Threads, schnelle Kerne, schlafend** | 44,6 T/s | 13,2 T/s | **1,5 s** |
+| 4 Threads, schnelle Kerne, kreisend | 28,6 T/s | 15,0 T/s | 1,6 s |
+| 4 Threads, alle Kerne, schlafend | 44,7 T/s | 14,0 T/s | 1,4 s |
+
+Die Grundeinstellung bleibt: 4 Threads, schnelle Kerne, schlafend. Der
+Verdacht hat sich bestätigt — 8 Threads waren das Zwanzigfache langsamer.
+
 ## Offen
 
 * Die Action „Satz korrigieren“ im Fork (Phase 2) — sie bindet diesen
