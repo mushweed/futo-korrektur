@@ -121,7 +121,15 @@ dem Start geladen und korrigiert wurde und wie viel Rechenzeit das war
 * Die Action „Satz korrigieren“ im Fork (Phase 2) — sie bindet diesen
   Dienst über die Aktion `de.hnshnsen.korrektur.KORRIGIEREN` und braucht im
   Manifest `<queries>` für `de.hnshnsen.korrektur`.
-* KleidiAI (schnellere ARM-Kerne in ggml) ist aus: es lädt beim Bauen Quellen
-  nach. Lohnt sich vielleicht, wenn die Messwerte vom Gerät da sind.
+* **KleidiAI ist seit 0.06 an** (`llama-optionen.cmake`), wirkt aber nur
+  bei Q4_0- und Q8_0-Modellen. Q4_K_M rechnet ggml ohnehin über seinen
+  eigenen i8mm-Weg (`q4_K_8x8` in `repack.cpp`). Ob EuroLLM als Q4_0 mit
+  KleidiAI auf dem Pixel schneller ist, zeigt erst „Threads messen“ mit
+  beiden Dateien. Qualität auf dem Rechner (zwölf Prüfsätze): Q4_0 etwa
+  gleich gut, hält einmal Emoji und „dir“, macht dafür aus dem
+  Sonntags-Satz einen mit anderer Bedeutung (die Prüfung hält ihn zurück).
+* **Modelle baut GitHub** auf Knopfdruck (`.github/workflows/modell.yml`,
+  Actions → „Modell bauen“): Original von Hugging Face, umgewandelt mit dem
+  llama.cpp-Stand der App, als Release `modell-<name>-<format>`.
 * Phase 4: das Modell per LoRA auf Fabians eigene Texte feinjustieren —
   damit es Wörter und Emojis zuverlässig stehen lässt.
