@@ -25,8 +25,11 @@ struct Messung {
 
 class Kern {
 public:
-    // nullptr bei Fehler, dann steht der Grund in fehler.
-    static Kern *laden(const std::string &pfad, int threads, int kontext, std::string &fehler);
+    // nullptr bei Fehler, dann steht der Grund in fehler. In zwischenablage
+    // (ein Verzeichnis, leer = keins) liegt der eingelesene feste Anfang, damit
+    // er nicht bei jedem Laden neu gerechnet werden muss.
+    static Kern *laden(const std::string &pfad, int threads, int kontext, const std::string &zwischenablage,
+                       std::string &fehler);
     ~Kern();
 
     // true: ergebnis enthält die Antwort des Modells (roh, ohne Nachbearbeitung).
@@ -50,7 +53,7 @@ public:
 
 private:
     Kern() = default;
-    bool bereiteVor(std::string &fehler);
+    bool bereiteVor(const std::string &modell, const std::string &zwischenablage, std::string &fehler);
     bool lies(const std::vector<int> &token, std::string &fehler);
     std::vector<int> zerlege(const std::string &text, bool sonderzeichen, bool spezial) const;
 
@@ -64,6 +67,7 @@ private:
     int anfang_token_ = 0;   // so viele Token des festen Anfangs liegen im Speicher
     std::string schluss_;    // was nach dem Nutzertext folgt (Ende der Runde, Antwortbeginn)
     std::string vorlage_;    // erkannte Chat-Vorlage, für info()
+    bool anfang_gespeichert_ = false; // fester Anfang kam aus der Zwischenablage
     long laden_ms_ = 0;
     bool laden_gemeldet_ = false;
     std::atomic<bool> abbruch_{false};

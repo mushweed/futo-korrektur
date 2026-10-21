@@ -23,8 +23,11 @@ object Korrektor {
     /** Länger am Stück korrigiert die Tastatur nicht (Absatz vor dem Cursor). */
     const val MAX_ZEICHEN = 1200
 
-    /** So lange bleibt das Modell nach dem letzten Auftrag geladen. */
-    private const val LEERLAUF_MINUTEN = 15L
+    /**
+     * So lange bleibt das Modell nach dem letzten Auftrag geladen. Neu laden
+     * kostete auf dem Pixel 25 s; ein Gigabyte von sechzehn ist der kleinere Preis.
+     */
+    private const val LEERLAUF_MINUTEN = 120L
 
     private lateinit var app: Context
     private val arbeiter = Executors.newSingleThreadScheduledExecutor { Thread(it, "korrektur") }
@@ -190,7 +193,7 @@ object Korrektor {
         entlade("")
         zustand = "Lade $name …"
         val wahl = threadWahl
-        val neu = Kern.laden(datei, wahl.anzahl)
+        val neu = Kern.laden(datei, wahl.anzahl, File(app.cacheDir, "anfang").apply { mkdirs() })
         synchronized(sperre) {
             kern = neu
             kernDatei = datei

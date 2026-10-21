@@ -9,7 +9,7 @@ internal object KernNativ {
         System.loadLibrary("korrektur")
     }
 
-    @JvmStatic external fun laden(pfad: ByteArray, threads: Int, kontext: Int): Long
+    @JvmStatic external fun laden(pfad: ByteArray, threads: Int, kontext: Int, zwischenablage: ByteArray): Long
     @JvmStatic external fun korrigiere(zeiger: Long, text: ByteArray, maxToken: Int): ByteArray?
     @JvmStatic external fun messung(zeiger: Long): LongArray
     @JvmStatic external fun info(zeiger: Long): ByteArray
@@ -50,8 +50,8 @@ data class Messung(
 internal class Kern private constructor(private var zeiger: Long) : Closeable {
 
     companion object {
-        fun laden(datei: File, threads: Int, kontext: Int = 2048): Kern =
-            Kern(KernNativ.laden(datei.absolutePath.toByteArray(), threads, kontext))
+        fun laden(datei: File, threads: Int, zwischenablage: File, kontext: Int = 2048): Kern =
+            Kern(KernNativ.laden(datei.absolutePath.toByteArray(), threads, kontext, zwischenablage.absolutePath.toByteArray()))
     }
 
     /** null heißt abgebrochen; ein Fehler kommt als Ausnahme. */

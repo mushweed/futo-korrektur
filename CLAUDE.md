@@ -100,6 +100,13 @@ nur schnelle Kerne, schlafend.
 Die Grundeinstellung bleibt: 4 Threads, schnelle Kerne, schlafend. Der
 Verdacht hat sich bestätigt — 8 Threads waren das Zwanzigfache langsamer.
 
+**Aus der Tastatur heraus** (0.03, Tastatur mit `BIND_IMPORTANT`): 1,1–2 s je
+Satz, Gruppe `top-app`, alle Kerne. Ohne `BIND_IMPORTANT` lief die App als
+Hintergrunddienst. Teuer war das **Laden: 25 s**, vor allem das Einlesen des
+festen Anfangs. Seit 0.04 liegt der eingelesene Anfang in
+`cacheDir/anfang/` (`llama_state_seq_save_file`, ca. 33 MB je Modell), und
+das Modell bleibt 2 Stunden geladen statt 15 Minuten.
+
 ## Offen
 
 * Die Action „Satz korrigieren“ im Fork (Phase 2) — sie bindet diesen

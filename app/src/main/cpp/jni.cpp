@@ -35,9 +35,10 @@ Kern *kern(jlong zeiger) { return reinterpret_cast<Kern *>(zeiger); }
 extern "C" {
 
 JNIEXPORT jlong JNICALL
-Java_de_hnshnsen_korrektur_KernNativ_laden(JNIEnv *env, jclass, jbyteArray pfad, jint threads, jint kontext) {
+Java_de_hnshnsen_korrektur_KernNativ_laden(JNIEnv *env, jclass, jbyteArray pfad, jint threads, jint kontext,
+                                           jbyteArray zwischenablage) {
     std::string fehler;
-    Kern *k = Kern::laden(bytes(env, pfad), threads, kontext, fehler);
+    Kern *k = Kern::laden(bytes(env, pfad), threads, kontext, bytes(env, zwischenablage), fehler);
     if (!k) {
         wirf(env, fehler);
         return 0;

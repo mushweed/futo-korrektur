@@ -15,7 +15,8 @@ int main(int argc, char **argv) {
     int threads = argc > 3 ? atoi(argv[3]) : 4;
     int poll = argc > 4 ? atoi(argv[4]) : 0;
     std::string fehler;
-    auto *kern = korrektur::Kern::laden(argv[1], threads, 2048, fehler);
+    const char *ablage = getenv("ZWISCHENABLAGE");
+    auto *kern = korrektur::Kern::laden(argv[1], threads, 2048, ablage ? ablage : "", fehler);
     if (!kern) {
         fprintf(stderr, "Fehler: %s\n", fehler.c_str());
         return 1;

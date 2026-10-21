@@ -4,6 +4,9 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <dirent.h>
+#include <functional>
+#include <sys/stat.h>
 
 #include "ggml-cpu.h"
 #include "llama.h"
@@ -80,7 +83,8 @@ std::vector<int> grosse_kerne() {
 
 } // namespace
 
-Kern *Kern::laden(const std::string &pfad, int threads, int kontext, std::string &fehler) {
+Kern *Kern::laden(const std::string &pfad, int threads, int kontext, const std::string &zwischenablage,
+                  std::string &fehler) {
     static bool einmal = [] {
         llama_log_set(still, nullptr);
         llama_backend_init();
@@ -123,7 +127,7 @@ Kern *Kern::laden(const std::string &pfad, int threads, int kontext, std::string
         delete kern;
         return nullptr;
     }
-    if (!kern->bereiteVor(fehler)) {
+    if (!kern->bereiteVor(pfad, zwischenablage, fehler)) {
         delete kern;
         return nullptr;
     }
@@ -191,7 +195,7 @@ bool Kern::lies(const std::vector<int> &token, std::string &fehler) {
     return true;
 }
 
-bool Kern::bereiteVor(std::string &fehler) {
+bool Kern::bereiteVor(const std::string &modell, const std::string &zwischenablage, std::string &fehler) {
     std::vector<llama_chat_message> verlauf;
     verlauf.push_back({"system", ANWEISUNG});
     for (auto &b : BEISPIELE) {
@@ -246,11 +250,52 @@ bool Kern::bereiteVor(std::string &fehler) {
     }
     abbruch_ = false;
     llama_memory_clear(llama_get_memory(ctx_), true);
+
+    // Den Anfang einzulesen kostet auf dem Handy mehrere Sekunden. Einmal
+    // gerechnet, liegt er in der Zwischenablage, je Modell und Anfang eine
+    // Datei; Größe und Änderungszeit des Modells gehen in den Namen ein.
+    std::string datei, vorsilbe;
+    if (!zwischenablage.empty()) {
+        struct stat st {};
+        stat(modell.c_str(), &st);
+        size_t m = std::hash<std::string>{}(modell + "|" + std::to_string(st.st_size) + "|" +
+                                             std::to_string(st.st_mtime) + "|" + std::to_string(kontext_));
+        size_t a = std::hash<std::string>{}(anfang);
+        char name[96];
+        snprintf(name, sizeof(name), "anfang-%016zx-", m);
+        vorsilbe = name;
+        snprintf(name, sizeof(name), "%016zx.bin", a);
+        datei = zwischenablage + "/" + vorsilbe + name;
+
+        std::vector<llama_token> gelesen(token.size() + 1);
+        size_t n = 0;
+        if (llama_state_seq_load_file(ctx_, datei.c_str(), 0, gelesen.data(), gelesen.size(), &n) > 0 &&
+            n == token.size() && std::equal(token.begin(), token.end(), gelesen.begin())) {
+            anfang_token_ = (int) token.size();
+            anfang_gespeichert_ = true;
+            return true;
+        }
+        llama_memory_clear(llama_get_memory(ctx_), true);
+    }
+
     if (!lies(token, fehler)) {
         if (fehler.empty()) fehler = "Vorbereitung abgebrochen";
         return false;
     }
     anfang_token_ = (int) token.size();
+
+    if (!datei.empty()) {
+        // Ältere Stände desselben Modells (anderer Anfang) wegräumen.
+        if (DIR *d = opendir(zwischenablage.c_str())) {
+            while (dirent *e = readdir(d)) {
+                std::string n = e->d_name;
+                if (n.rfind(vorsilbe, 0) == 0) remove((zwischenablage + "/" + n).c_str());
+            }
+            closedir(d);
+        }
+        std::vector<llama_token> t(token.begin(), token.end());
+        llama_state_seq_save_file(ctx_, datei.c_str(), 0, t.data(), t.size());
+    }
     return true;
 }
 
@@ -306,6 +351,7 @@ std::string Kern::info() const {
     snprintf(zeile, sizeof(zeile), "%s · %.0f Mio. Parameter · %.0f MB · Vorlage %s · Anfang %d Token · %s",
              beschreibung, llama_model_n_params(modell_) / 1e6, llama_model_size(modell_) / 1048576.0,
              vorlage_.c_str(), anfang_token_, thread_info_.c_str());
+    if (anfang_gespeichert_) strncat(zeile, " · Anfang aus Zwischenablage", sizeof(zeile) - strlen(zeile) - 1);
     return zeile;
 }
 
