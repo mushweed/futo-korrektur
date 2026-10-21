@@ -77,8 +77,44 @@ Probelauf am 21.10.2026 mit den zwölf Prüfsätzen, auf einem x86-Rechner mit
 | EuroLLM-1.7B-Instruct Q4_K_M | 1,0 GB | 3,5 s | ca. 1,1 s | gut: Kommas, dass/das, Groß-/Kleinschreibung. Lässt aber ein Emoji am Ende fallen, streicht einmal „dir“, macht aus „offen“ „geöffnet“ |
 | Qwen3-1.7B Q4_K_M | 1,1 GB | 4,2 s | ca. 1,5 s | zu zurückhaltend: viele Fehler bleiben stehen |
 
-Messungen auf dem Pixel 9 Pro XL stehen noch aus. Die App zeigt sie unter
-„Prüfsätze durchlaufen“ und kopiert sie mit „Ergebnis kopieren“.
+**Auf dem Pixel 9 Pro XL, erster Versuch (0.01, 8 Threads):** Einlesen
+6,2 Token/s, Antwort 0,8 Token/s — rund zwanzigmal langsamer als erwartet.
+Übersetzt war richtig (`-O3`, `armv8.6-a+dotprod+i8mm`). Verdacht: llama.cpp
+lässt wartende Threads aktiv kreisen; auf acht Kernen, vier davon Sparkerne,
+wartet jeder Schritt auf den langsamsten. Seit 0.02 lassen sich Anzahl,
+„nur schnelle Kerne“ und „kreisen“ ohne Neuladen umstellen
+(`Kern::threads`, eigener ggml-Threadpool), und „Threads messen“ vergleicht
+alle Varianten an einem Satz. Grundeinstellung bis zur Messung: 4 Threads,
+nur schnelle Kerne, schlafend.
+
+**Gemessen mit 0.02 am 21.10.2026** (ein Satz, 18 Token ein, ca. 15 aus):
+
+| Einstellung | Einlesen | Antwort | zusammen |
+|---|---|---|---|
+| 2 Threads, schnelle Kerne, schlafend | 24,6 T/s | 9,2 T/s | 2,3 s |
+| 3 Threads, schnelle Kerne, schlafend | 36,3 T/s | 12,5 T/s | 1,6 s |
+| **4 Threads, schnelle Kerne, schlafend** | 44,6 T/s | 13,2 T/s | **1,5 s** |
+| 4 Threads, schnelle Kerne, kreisend | 28,6 T/s | 15,0 T/s | 1,6 s |
+| 4 Threads, alle Kerne, schlafend | 44,7 T/s | 14,0 T/s | 1,4 s |
+
+Die Grundeinstellung bleibt: 4 Threads, schnelle Kerne, schlafend. Der
+Verdacht hat sich bestätigt — 8 Threads waren das Zwanzigfache langsamer.
+
+**Aus der Tastatur heraus** (0.03, Tastatur mit `BIND_IMPORTANT`): 1,1–2 s je
+Satz, Gruppe `top-app`, alle Kerne. Ohne `BIND_IMPORTANT` lief die App als
+Hintergrunddienst. Teuer war das **Laden: 25 s**, vor allem das Einlesen des
+festen Anfangs. Seit 0.04 liegt der eingelesene Anfang in
+`cacheDir/anfang/` (`llama_state_seq_save_file`, ca. 33 MB je Modell), und
+das Modell bleibt 2 Stunden geladen statt 15 Minuten.
+
+**Akku** (21.10.2026): Nach dem Testtag stand die App bei 44 % des Akkus,
+17 Min. Hintergrund. Das war Rechenzeit, kein Leerlauf: bei `poll = 0`
+legen sich die ggml-Threads sofort schlafen (`ggml_graph_compute_check_for_work`),
+ein geladenes, untätiges Modell kostet nichts. Gekostet haben die 8
+kreisenden Threads bis 0.02 (14–30 s Vollast je Satz), viele Ladevorgänge zu
+25 s und die Messläufe. Seit 0.05 zeigt der Startbildschirm, wie oft seit
+dem Start geladen und korrigiert wurde und wie viel Rechenzeit das war
+(`Korrektor.verbrauch()`).
 
 ## Offen
 

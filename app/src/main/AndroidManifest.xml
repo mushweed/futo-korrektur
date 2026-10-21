@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Kein INTERNET: alles bleibt auf dem Gerät. -->
+
+    <queries>
+        <package android:name="de.hnshnsen.keyboard" />
+        <package android:name="de.hnshnsen.keyboard.unstable" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/symbol"
+        android:label="Korrektur"
+        android:theme="@android:style/Theme.DeviceDefault.DayNight">
+
+        <activity
+            android:name=".StartAktivitaet"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Exportiert für die Tastatur; wer aufrufen darf, prüft der Dienst selbst. -->
+        <service
+            android:name=".KorrekturDienst"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="de.hnshnsen.korrektur.KORRIGIEREN" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>
