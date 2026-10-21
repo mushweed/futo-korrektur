@@ -1,0 +1,72 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+// Die Version steht nur hier. Schreibweise Haupt.Neben mit zweistelliger
+// Nebennummer (0.01, 0.02 …); versionCode = Haupt * 100 + Neben.
+def VERSION = '0.01'
+def (haupt, neben) = VERSION.tokenize('.')*.toInteger()
+
+android {
+    namespace 'de.hnshnsen.korrektur'
+    compileSdk 35
+    ndkVersion '28.2.13676358'
+
+    defaultConfig {
+        applicationId 'de.hnshnsen.korrektur'
+        minSdk 31
+        targetSdk 35
+        versionCode haupt * 100 + neben
+        versionName VERSION
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild {
+            cmake {
+                // Auch im Debug-Bau optimiert: ungeoptimiert ist llama.cpp
+                // um ein Vielfaches langsamer, und gemessen wird auf dem Gerät.
+                arguments '-DCMAKE_BUILD_TYPE=Release'
+            }
+        }
+    }
+
+    // Ein Schlüssel im Repo, damit jede Fassung - vom Rechner wie von GitHub -
+    // sich über die vorige installieren lässt. Das Repo ist privat.
+    signingConfigs {
+        korrektur {
+            storeFile file('korrektur.keystore')
+            storePassword 'korrektur'
+            keyAlias 'korrektur'
+            keyPassword 'korrektur'
+        }
+    }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.korrektur }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.korrektur
+        }
+    }
+
+    buildFeatures {
+        aidl true
+        buildConfig false
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
