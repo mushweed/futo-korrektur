@@ -11,6 +11,7 @@ struct llama_model;
 struct llama_context;
 struct llama_sampler;
 struct llama_vocab;
+struct ggml_threadpool;
 
 namespace korrektur {
 
@@ -39,6 +40,11 @@ public:
     // Abbruch verloren, der kurz vor dem Start eintrifft.
     void zuruecksetzen() { abbruch_ = false; }
 
+    // Stellt die Rechen-Threads um, ohne neu zu laden. poll: 0 = wartende
+    // Threads schlafen, 50 = llama.cpp-Grundeinstellung (sie kreisen aktiv).
+    // grosse: nur auf den schnellen Kernen rechnen (höchste Taktgrenze).
+    bool threads(int anzahl, int poll, bool grosse, std::string &fehler);
+
     std::string info() const;
     const Messung &letzteMessung() const { return messung_; }
 
@@ -51,6 +57,8 @@ private:
     llama_model *modell_ = nullptr;
     llama_context *ctx_ = nullptr;
     llama_sampler *wahl_ = nullptr;
+    ggml_threadpool *pool_ = nullptr;
+    std::string thread_info_;
     const llama_vocab *vokabular_ = nullptr;
     int kontext_ = 0;
     int anfang_token_ = 0;   // so viele Token des festen Anfangs liegen im Speicher

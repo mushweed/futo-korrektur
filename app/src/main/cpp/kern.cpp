@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "ggml-cpu.h"
 #include "llama.h"
 
 namespace korrektur {
@@ -53,6 +54,30 @@ bool abbruch_gewuenscht(void *daten) {
     return static_cast<std::atomic<bool> *>(daten)->load();
 }
 
+// Die schnellen Kerne: alle außer denen mit der niedrigsten Taktgrenze. Auf
+// dem Tensor G4 sind das 4-7 (3× A720, 1× X4); 0-3 sind die Sparkerne A520.
+std::vector<int> grosse_kerne() {
+    std::vector<std::pair<int, long>> kerne;
+    for (int i = 0; i < 64; i++) {
+        char pfad[96];
+        snprintf(pfad, sizeof(pfad), "/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", i);
+        FILE *f = fopen(pfad, "r");
+        if (!f) break;
+        long takt = 0;
+        if (fscanf(f, "%ld", &takt) != 1) takt = 0;
+        fclose(f);
+        kerne.emplace_back(i, takt);
+    }
+    std::vector<int> grosse;
+    if (kerne.empty()) return grosse;
+    long kleinster = kerne[0].second;
+    for (auto &k : kerne) kleinster = std::min(kleinster, k.second);
+    for (auto &k : kerne) {
+        if (k.second > kleinster) grosse.push_back(k.first);
+    }
+    return grosse; // leer: alle gleich schnell, keine Einschränkung
+}
+
 } // namespace
 
 Kern *Kern::laden(const std::string &pfad, int threads, int kontext, std::string &fehler) {
@@ -94,6 +119,10 @@ Kern *Kern::laden(const std::string &pfad, int threads, int kontext, std::string
     kern->wahl_ = llama_sampler_chain_init(llama_sampler_chain_default_params());
     llama_sampler_chain_add(kern->wahl_, llama_sampler_init_greedy());
 
+    if (!kern->threads(threads, 0, true, fehler)) {
+        delete kern;
+        return nullptr;
+    }
     if (!kern->bereiteVor(fehler)) {
         delete kern;
         return nullptr;
@@ -105,7 +134,36 @@ Kern *Kern::laden(const std::string &pfad, int threads, int kontext, std::string
 Kern::~Kern() {
     if (wahl_) llama_sampler_free(wahl_);
     if (ctx_) llama_free(ctx_);
+    if (pool_) ggml_threadpool_free(pool_);
     if (modell_) llama_model_free(modell_);
+}
+
+bool Kern::threads(int anzahl, int poll, bool grosse, std::string &fehler) {
+    ggml_threadpool_params p = ggml_threadpool_params_default(anzahl);
+    p.poll = (uint32_t) poll;
+    std::string kerne = "alle Kerne";
+    if (grosse) {
+        auto liste = grosse_kerne();
+        if (!liste.empty()) {
+            kerne = "Kerne";
+            for (int k : liste) {
+                if (k < GGML_MAX_N_THREADS) p.cpumask[k] = true;
+                kerne += " " + std::to_string(k);
+            }
+        }
+    }
+    ggml_threadpool *neu = ggml_threadpool_new(&p);
+    if (!neu) {
+        fehler = "Threadpool lässt sich nicht anlegen";
+        return false;
+    }
+    llama_detach_threadpool(ctx_);
+    if (pool_) ggml_threadpool_free(pool_);
+    pool_ = neu;
+    llama_attach_threadpool(ctx_, pool_, pool_);
+    llama_set_n_threads(ctx_, anzahl, anzahl);
+    thread_info_ = std::to_string(anzahl) + " Threads, " + kerne + (poll ? ", kreisend" : ", schlafend");
+    return true;
 }
 
 std::vector<int> Kern::zerlege(const std::string &text, bool sonderzeichen, bool spezial) const {
@@ -245,9 +303,9 @@ std::string Kern::info() const {
     char beschreibung[256];
     llama_model_desc(modell_, beschreibung, sizeof(beschreibung));
     char zeile[512];
-    snprintf(zeile, sizeof(zeile), "%s · %.0f Mio. Parameter · %.0f MB · Vorlage %s · Anfang %d Token",
+    snprintf(zeile, sizeof(zeile), "%s · %.0f Mio. Parameter · %.0f MB · Vorlage %s · Anfang %d Token · %s",
              beschreibung, llama_model_n_params(modell_) / 1e6, llama_model_size(modell_) / 1048576.0,
-             vorlage_.c_str(), anfang_token_);
+             vorlage_.c_str(), anfang_token_, thread_info_.c_str());
     return zeile;
 }
 

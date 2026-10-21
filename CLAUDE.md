@@ -77,8 +77,15 @@ Probelauf am 21.10.2026 mit den zwölf Prüfsätzen, auf einem x86-Rechner mit
 | EuroLLM-1.7B-Instruct Q4_K_M | 1,0 GB | 3,5 s | ca. 1,1 s | gut: Kommas, dass/das, Groß-/Kleinschreibung. Lässt aber ein Emoji am Ende fallen, streicht einmal „dir“, macht aus „offen“ „geöffnet“ |
 | Qwen3-1.7B Q4_K_M | 1,1 GB | 4,2 s | ca. 1,5 s | zu zurückhaltend: viele Fehler bleiben stehen |
 
-Messungen auf dem Pixel 9 Pro XL stehen noch aus. Die App zeigt sie unter
-„Prüfsätze durchlaufen“ und kopiert sie mit „Ergebnis kopieren“.
+**Auf dem Pixel 9 Pro XL, erster Versuch (0.01, 8 Threads):** Einlesen
+6,2 Token/s, Antwort 0,8 Token/s — rund zwanzigmal langsamer als erwartet.
+Übersetzt war richtig (`-O3`, `armv8.6-a+dotprod+i8mm`). Verdacht: llama.cpp
+lässt wartende Threads aktiv kreisen; auf acht Kernen, vier davon Sparkerne,
+wartet jeder Schritt auf den langsamsten. Seit 0.02 lassen sich Anzahl,
+„nur schnelle Kerne“ und „kreisen“ ohne Neuladen umstellen
+(`Kern::threads`, eigener ggml-Threadpool), und „Threads messen“ vergleicht
+alle Varianten an einem Satz. Grundeinstellung bis zur Messung: 4 Threads,
+nur schnelle Kerne, schlafend.
 
 ## Offen
 

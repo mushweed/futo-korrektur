@@ -13,9 +13,19 @@ internal object KernNativ {
     @JvmStatic external fun korrigiere(zeiger: Long, text: ByteArray, maxToken: Int): ByteArray?
     @JvmStatic external fun messung(zeiger: Long): LongArray
     @JvmStatic external fun info(zeiger: Long): ByteArray
+    @JvmStatic external fun threads(zeiger: Long, anzahl: Int, poll: Int, grosse: Boolean)
     @JvmStatic external fun abbrechen(zeiger: Long)
     @JvmStatic external fun zuruecksetzen(zeiger: Long)
     @JvmStatic external fun freigeben(zeiger: Long)
+}
+
+/**
+ * Wie gerechnet wird. Auf dem Pixel entscheidet das über Faktor zehn und mehr:
+ * kreisende Threads auf Sparkernen warten bei jedem Schritt aufeinander.
+ */
+data class ThreadWahl(val anzahl: Int, val nurGrosse: Boolean, val kreisen: Boolean) {
+    fun text() = "$anzahl Threads, " + (if (nurGrosse) "schnelle Kerne" else "alle Kerne") +
+        (if (kreisen) ", kreisend" else ", schlafend")
 }
 
 data class Messung(
@@ -53,6 +63,9 @@ internal class Kern private constructor(private var zeiger: Long) : Closeable {
     }
 
     fun info(): String = KernNativ.info(zeiger).toString(Charsets.UTF_8)
+
+    /** Ohne neu zu laden; siehe Kern::threads in kern.h. */
+    fun threads(wahl: ThreadWahl) = KernNativ.threads(zeiger, wahl.anzahl, if (wahl.kreisen) 50 else 0, wahl.nurGrosse)
     fun abbrechen() = KernNativ.abbrechen(zeiger)
     fun zuruecksetzen() = KernNativ.zuruecksetzen(zeiger)
 

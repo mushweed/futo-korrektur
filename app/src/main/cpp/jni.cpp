@@ -68,6 +68,12 @@ Java_de_hnshnsen_korrektur_KernNativ_info(JNIEnv *env, jclass, jlong zeiger) {
 }
 
 JNIEXPORT void JNICALL
+Java_de_hnshnsen_korrektur_KernNativ_threads(JNIEnv *env, jclass, jlong zeiger, jint anzahl, jint poll, jboolean grosse) {
+    std::string fehler;
+    if (!kern(zeiger)->threads(anzahl, poll, grosse, fehler)) wirf(env, fehler);
+}
+
+JNIEXPORT void JNICALL
 Java_de_hnshnsen_korrektur_KernNativ_abbrechen(JNIEnv *, jclass, jlong zeiger) {
     kern(zeiger)->abbrechen();
 }

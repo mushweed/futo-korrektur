@@ -14,6 +14,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
@@ -75,15 +76,26 @@ class StartAktivitaet : Activity() {
 
         ueberschrift("Threads")
         val threadWahl = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
-        for (n in listOf(2, 4, 6, 8)) {
+        for (n in listOf(2, 3, 4, 6, 8)) {
             threadWahl.addView(RadioButton(this).apply {
                 id = View.generateViewId()
                 text = "$n"
-                isChecked = n == Korrektor.threads
-                setOnClickListener { Korrektor.threads = n }
+                isChecked = n == Korrektor.threadWahl.anzahl
+                setOnClickListener { Korrektor.threadWahl = Korrektor.threadWahl.copy(anzahl = n) }
             })
         }
         spalte.addView(threadWahl)
+        spalte.addView(CheckBox(this).apply {
+            text = "Nur die schnellen Kerne"
+            isChecked = Korrektor.threadWahl.nurGrosse
+            setOnCheckedChangeListener { _, an -> Korrektor.threadWahl = Korrektor.threadWahl.copy(nurGrosse = an) }
+        })
+        spalte.addView(CheckBox(this).apply {
+            text = "Wartende Threads kreisen lassen"
+            isChecked = Korrektor.threadWahl.kreisen
+            setOnCheckedChangeListener { _, an -> Korrektor.threadWahl = Korrektor.threadWahl.copy(kreisen = an) }
+        })
+        spalte.addView(knopf("Threads messen") { messeThreads() })
 
         ueberschrift("Ausprobieren")
         eingabe = EditText(this).apply {
@@ -220,7 +232,7 @@ class StartAktivitaet : Activity() {
 
     private fun pruefsaetze() {
         val saetze = assets.open("pruefsaetze.txt").bufferedReader().readLines().filter { it.isNotBlank() }
-        protokoll = StringBuilder("Modell: ${Korrektor.aktivesModell} · Threads: ${Korrektor.threads}\n\n")
+        protokoll = StringBuilder("Modell: ${Korrektor.aktivesModell} · ${Korrektor.threadWahl.text()}\n\n")
         zeige(protokoll.toString() + "Läuft …")
         for (satz in saetze) {
             Korrektor.korrigiere(++auftrag, satz) { ergebnis ->
@@ -231,6 +243,15 @@ class StartAktivitaet : Activity() {
                 }
             }
         }
+    }
+
+    private fun messeThreads() {
+        protokoll = StringBuilder("Modell: ${Korrektor.aktivesModell}\nThreads messen, ein Satz je Einstellung …\n\n")
+        zeige(protokoll.toString())
+        Korrektor.messeThreads(
+            zeile = { z -> haupt.post { protokoll.append(z).append('\n'); zeige(protokoll.toString()) } },
+            fertig = { haupt.post { protokoll.append("\nFertig."); zeige(protokoll.toString()) } },
+        )
     }
 
     private fun beschreibe(text: String, ergebnis: Korrektor.Ergebnis): String = when (ergebnis) {

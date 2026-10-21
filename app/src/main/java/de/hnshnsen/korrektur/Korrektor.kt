@@ -31,7 +31,6 @@ object Korrektor {
     private val sperre = Any()
     private var kern: Kern? = null
     private var kernDatei: File? = null
-    private var kernThreads = 0
     private var entladen: ScheduledFuture<*>? = null
     private val laufend = AtomicInteger(0)
     private val abgebrochen: MutableSet<Int> = ConcurrentHashMap.newKeySet()
@@ -57,13 +56,57 @@ object Korrektor {
             arbeiter.execute { entlade("Modell gewechselt") }
         }
 
-    /** Der Tensor G4 hat einen großen und drei mittlere Kerne; mehr Threads helfen selten. */
-    var threads: Int
-        get() = einstellungen.getInt("threads", 4)
-        set(n) {
-            einstellungen.edit().putInt("threads", n).apply()
-            arbeiter.execute { entlade("Threads geändert") }
+    /** Der Tensor G4 hat einen großen, drei mittlere und vier Sparkerne. */
+    var threadWahl: ThreadWahl
+        get() = ThreadWahl(
+            einstellungen.getInt("threads", 4),
+            einstellungen.getBoolean("nur_grosse", true),
+            einstellungen.getBoolean("kreisen", false),
+        )
+        set(w) {
+            einstellungen.edit().putInt("threads", w.anzahl).putBoolean("nur_grosse", w.nurGrosse)
+                .putBoolean("kreisen", w.kreisen).apply()
+            arbeiter.execute { kern?.let { wende(it, w) } }
         }
+
+    private fun wende(k: Kern, w: ThreadWahl) {
+        k.threads(w)
+        zustand = "Geladen: ${k.info()}"
+    }
+
+    /** Ein Satz, viele Einstellungen: misst, was auf diesem Gerät am schnellsten ist. */
+    fun messeThreads(zeile: (String) -> Unit, fertig: () -> Unit) {
+        arbeiter.execute {
+            val vorher = threadWahl
+            try {
+                val k = sicherGeladen()
+                val satz = "ich komme heute später nach hause weil der zug ausgefallen ist"
+                val wahlen = listOf(
+                    ThreadWahl(2, true, false), ThreadWahl(3, true, false), ThreadWahl(4, true, false),
+                    ThreadWahl(4, true, true), ThreadWahl(4, false, false), ThreadWahl(6, false, false),
+                    ThreadWahl(8, false, false), ThreadWahl(8, false, true),
+                )
+                for (w in wahlen) {
+                    k.threads(w)
+                    k.zuruecksetzen()
+                    val antwort = k.korrigiere(satz, 40)
+                    val m = k.messung()
+                    zeile(
+                        if (antwort == null) "${w.text()}: abgebrochen"
+                        else "%s: Einlesen %.1f T/s, Antwort %.1f T/s, zusammen %d ms".format(
+                            w.text(), m.promptToken * 1000.0 / maxOf(1, m.promptMs),
+                            m.antwortToken * 1000.0 / maxOf(1, m.antwortMs), m.promptMs + m.antwortMs,
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                zeile("Fehler: ${e.message}")
+            } finally {
+                kern?.let { wende(it, vorher) }
+                fertig()
+            }
+        }
+    }
 
     fun vorbereiten() {
         arbeiter.execute {
@@ -115,17 +158,16 @@ object Korrektor {
         val name = aktivesModell ?: throw IllegalStateException("Kein Modell gewählt – in der App Korrektur eines hinzufügen")
         val datei = File(ordner(), name)
         if (!datei.isFile) throw IllegalStateException("Modell $name fehlt")
-        val n = threads
-        kern?.let { if (kernDatei == datei && kernThreads == n) return it }
+        kern?.let { if (kernDatei == datei) return it }
         entlade("")
         zustand = "Lade $name …"
-        val neu = Kern.laden(datei, n)
+        val wahl = threadWahl
+        val neu = Kern.laden(datei, wahl.anzahl)
         synchronized(sperre) {
             kern = neu
             kernDatei = datei
-            kernThreads = n
         }
-        zustand = "Geladen: ${neu.info()}"
+        wende(neu, wahl)
         return neu
     }
 

@@ -1,5 +1,5 @@
 // Prüft den Kern auf dem Rechner, ohne Android:
-//   probe <modell.gguf> <saetze.txt> [threads]
+//   probe <modell.gguf> <saetze.txt> [threads] [poll]
 // Je Zeile der Datei ein Satz; ausgegeben werden Antwort und Messwerte.
 #include <cstdio>
 #include <fstream>
@@ -9,13 +9,18 @@
 
 int main(int argc, char **argv) {
     if (argc < 3) {
-        fprintf(stderr, "Aufruf: probe <modell.gguf> <saetze.txt> [threads]\n");
+        fprintf(stderr, "Aufruf: probe <modell.gguf> <saetze.txt> [threads] [poll]\n");
         return 2;
     }
     int threads = argc > 3 ? atoi(argv[3]) : 4;
+    int poll = argc > 4 ? atoi(argv[4]) : 0;
     std::string fehler;
     auto *kern = korrektur::Kern::laden(argv[1], threads, 2048, fehler);
     if (!kern) {
+        fprintf(stderr, "Fehler: %s\n", fehler.c_str());
+        return 1;
+    }
+    if (!kern->threads(threads, poll, false, fehler)) {
         fprintf(stderr, "Fehler: %s\n", fehler.c_str());
         return 1;
     }
