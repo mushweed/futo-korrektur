@@ -119,8 +119,16 @@ object Korrektor {
         }
     }
 
-    fun korrigiere(auftrag: Int, text: String, fertig: (Ergebnis) -> Unit) {
+    /** Die letzten Aufträge der Tastatur, für den Startbildschirm. */
+    private val tastaturProtokoll = ArrayDeque<String>()
+
+    fun tastaturProtokoll(): List<String> = synchronized(tastaturProtokoll) { tastaturProtokoll.toList() }
+
+    /** [vonTastatur]: Lage und Messwerte ins Tastatur-Protokoll schreiben. */
+    fun korrigiere(auftrag: Int, text: String, vonTastatur: Boolean = false, fertig: (Ergebnis) -> Unit) {
+        val eingang = System.currentTimeMillis()
         arbeiter.execute {
+            val lageVorher = if (vonTastatur) Lage.jetzt() else ""
             val ergebnis = try {
                 bearbeite(auftrag, text)
             } catch (e: Exception) {
@@ -129,8 +137,28 @@ object Korrektor {
                 laufend.set(0)
                 abgebrochen.remove(auftrag)
             }
+            if (vonTastatur) protokolliere(eingang, text, ergebnis, lageVorher)
             planeEntladen()
             fertig(ergebnis)
+        }
+    }
+
+    private fun protokolliere(eingang: Long, text: String, ergebnis: Ergebnis, lageVorher: String) {
+        val uhr = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.GERMANY).format(java.util.Date(eingang))
+        val eintrag = buildString {
+            append(uhr).append(" · ").append(System.currentTimeMillis() - eingang).append(" ms seit Eingang\n")
+            append("Text: ").append(text.take(60)).append('\n')
+            when (ergebnis) {
+                is Ergebnis.Fertig -> append(ergebnis.messung.text()).append('\n')
+                is Ergebnis.Fehler -> append("Fehler: ").append(ergebnis.meldung).append('\n')
+                Ergebnis.Abgebrochen -> append("Abgebrochen\n")
+            }
+            append("Vorher: ").append(lageVorher).append('\n')
+            append("Nachher: ").append(Lage.jetzt())
+        }
+        synchronized(tastaturProtokoll) {
+            tastaturProtokoll.addFirst(eintrag)
+            while (tastaturProtokoll.size > 10) tastaturProtokoll.removeLast()
         }
     }
 

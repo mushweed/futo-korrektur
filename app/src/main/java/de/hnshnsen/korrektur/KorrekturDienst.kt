@@ -44,7 +44,7 @@ class KorrekturDienst : Service() {
             if (rueckruf == null) return
             if (!erlaubt()) return melde { rueckruf.fehler(auftrag, "Dieser App ist die Korrektur nicht freigegeben") }
             if (text == null) return melde { rueckruf.fehler(auftrag, "Kein Text") }
-            Korrektor.korrigiere(auftrag, text) { ergebnis ->
+            Korrektor.korrigiere(auftrag, text, vonTastatur = true) { ergebnis ->
                 melde {
                     when (ergebnis) {
                         is Korrektor.Ergebnis.Fertig -> rueckruf.fertig(

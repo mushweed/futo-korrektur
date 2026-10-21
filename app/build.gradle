@@ -5,7 +5,7 @@ plugins {
 
 // Die Version steht nur hier. Schreibweise Haupt.Neben mit zweistelliger
 // Nebennummer (0.01, 0.02 …); versionCode = Haupt * 100 + Neben.
-def VERSION = '0.02'
+def VERSION = '0.03'
 def (haupt, neben) = VERSION.tokenize('.')*.toInteger()
 
 android {

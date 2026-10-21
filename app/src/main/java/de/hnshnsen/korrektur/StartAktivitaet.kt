@@ -96,6 +96,7 @@ class StartAktivitaet : Activity() {
             setOnCheckedChangeListener { _, an -> Korrektor.threadWahl = Korrektor.threadWahl.copy(kreisen = an) }
         })
         spalte.addView(knopf("Threads messen") { messeThreads() })
+        spalte.addView(knopf("Aufträge der Tastatur zeigen") { zeigeTastaturProtokoll() })
 
         ueberschrift("Ausprobieren")
         eingabe = EditText(this).apply {
@@ -243,6 +244,14 @@ class StartAktivitaet : Activity() {
                 }
             }
         }
+    }
+
+    private fun zeigeTastaturProtokoll() {
+        val eintraege = Korrektor.tastaturProtokoll()
+        protokoll = StringBuilder("Jetzt (Vordergrund): ${Lage.jetzt()}\n\n")
+        if (eintraege.isEmpty()) protokoll.append("Noch keine Aufträge der Tastatur seit dem Start der App.")
+        eintraege.forEach { protokoll.append(it).append("\n\n") }
+        zeige(protokoll.toString())
     }
 
     private fun messeThreads() {
